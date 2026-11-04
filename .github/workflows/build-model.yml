@@ -20,7 +20,7 @@ jobs:
       - name: Download Base Model
         run: |
           pip install huggingface_hub
-          huggingface-cli download Qwen/Qwen2.5-Coder-1.5B-Instruct --local-dir ./base-model
+          hf download Qwen/Qwen2.5-Coder-1.5B-Instruct --local-dir ./base-model
 
       - name: Setup llama.cpp
         run: |
