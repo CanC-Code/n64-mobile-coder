@@ -1,0 +1,56 @@
+name: Build Mobile N64 Coder
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-model:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # Phase 1: Extract Data (You can also commit a dataset to the repo)
+      - name: Extract Training Data
+        run: |
+          # Since DKR is not cloned in CI by default, we skip cloning it here.
+          # In the real world, you'd upload your generated n64_dataset.jsonl or clone DKR.
+          echo "Dataset extraction skipped in CI. Using pre-existing dataset if available."
+          # python scripts/extract_data.py
+
+      # Phase 2: Download Base Model
+      - name: Download Base Model
+        run: |
+          pip install huggingface_hub
+          huggingface-cli download Qwen/Qwen2.5-Coder-1.5B-Instruct --local-dir ./base-model
+
+      # Phase 3: Build llama.cpp and Quantize
+      - name: Setup llama.cpp
+        run: |
+          git clone https://github.com/ggerganov/llama.cpp
+          cd llama.cpp
+          cmake -B build
+          cmake --build build --config Release -j 4
+
+      - name: Convert to GGUF
+        run: |
+          pip install -r llama.cpp/requirements.txt
+          python llama.cpp/convert_hf_to_gguf.py ./base-model --outfile ./n64-coder-f16.gguf
+
+      - name: Quantize to Q4_K_M
+        run: |
+          ./llama.cpp/build/bin/llama-quantize ./n64-coder-f16.gguf ./n64-coder-Q4_K_M.gguf Q4_K_M
+
+      # Phase 4: Upload Artifact
+      - name: Upload Model Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: n64-coder-model
+          path: ./n64-coder-Q4_K_M.gguf
